@@ -285,10 +285,10 @@ def main():
     listfile = sys.argv[1] if len(sys.argv) > 1 else "apps.txt"
     jobs = []
     for line in Path(listfile).read_text().splitlines():
-        printf("DEBUG: line=%r", line)
+        print("DEBUG: line=%r", line)
         line = line.split("#", 1)[0].strip()
         if line:
-            printf("DEBUG: repo=%r, pkg=%r", *line.split()[:2])
+            print("DEBUG: repo=%r, pkg=%r", *line.split()[:2])
             repo, pkg = line.split()[:2]
             jobs += [(repo, pkg, a) for a in ARCHS]
 
