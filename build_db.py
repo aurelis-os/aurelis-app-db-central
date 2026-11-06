@@ -8,6 +8,9 @@ build_db.py — μαζεύει τα metadata από τα releases των AppImag
 
   python3 build_db.py [apps.txt]
 
+Έξοδοι: apps.db (+.gz), index.json, και ένα  i18n-<γλώσσα>.db.gz  ανά γλώσσα (μεταφράσεις
+ονόματος/περίληψης/περιγραφής). Η βάση apps.db έχει πίνακα `languages` με sha256 κάθε αρχείου.
+
 Μεταβλητές (όλες προαιρετικές):
   ARCHS         "x86_64"  ή  "x86_64 aarch64"
   OUT           φάκελος εξόδου (default: out)
@@ -69,6 +72,43 @@ def nolang(parent, tag):
     return None
 
 
+def normlang(l):
+    return (l or "").replace("-", "_").strip()
+
+
+def skip_lang(l):
+    return l in ("", "C", "en", "POSIX")
+
+
+def parse_description(c):
+    """{lang: κείμενο}. Το None = προεπιλογή (αγγλικά). Δουλεύει και για τις δύο μορφές του AppStream:
+    <p xml:lang=..> μέσα σε ένα <description>, ή ξεχωριστά <description xml:lang=..>."""
+    blocks = {}
+    for d in c.findall("description"):
+        dl = d.get(XML_LANG)
+        for el in d:
+            lang = el.get(XML_LANG) or dl
+            if el.tag == "p":
+                t = plain(el)
+                if t:
+                    blocks.setdefault(lang, []).append(t)
+            elif el.tag in ("ul", "ol"):
+                per = {}
+                for li in el.findall("li"):
+                    t = plain(li)
+                    if t:
+                        per.setdefault(li.get(XML_LANG) or lang, []).append(t)
+                for l, items in per.items():
+                    pre = (lambda n: "- ") if el.tag == "ul" else (lambda n: f"{n}. ")
+                    blocks.setdefault(l, []).append("\n".join(pre(n) + t for n, t in enumerate(items, 1)))
+    return {l: "\n\n".join(b) for l, b in blocks.items()}
+
+
+def lang_texts(c, tag):
+    """{lang: κείμενο} για name/summary (None = προεπιλογή)."""
+    return {e.get(XML_LANG): plain(e) for e in c.findall(tag) if plain(e)}
+
+
 def parse_component(c):
     cid = (nolang(c, "id").text or "").strip() if nolang(c, "id") is not None else ""
     cid = re.sub(r"\.desktop$", "", cid)
@@ -78,14 +118,17 @@ def parse_component(c):
         if imgs and (imgs[0].text or "").strip():
             cap = plain(nolang(s, "caption"))
             shots.append({"url": imgs[0].text.strip(), "caption": cap})
-    desc = nolang(c, "description")
-    paras = [plain(p) for p in desc.findall("p")] if desc is not None else []
+    descs = parse_description(c)
+    names, sums = lang_texts(c, "name"), lang_texts(c, "summary")
     home = next((u.text.strip() for u in c.findall("url") if u.get("type") == "homepage" and u.text), "")
     return {
         "id": cid,
         "name": plain(nolang(c, "name")),
         "summary": plain(nolang(c, "summary")),
-        "description": "\n\n".join(p for p in paras if p),
+        "description": descs.get(None, ""),
+        "i18n": {"name": {normlang(k): v for k, v in names.items() if k},
+                 "summary": {normlang(k): v for k, v in sums.items() if k},
+                 "description": {normlang(k): v for k, v in descs.items() if k}},
         "homepage": home,
         "license": plain(c.find("project_license")),
         "categories": [plain(x) for x in c.findall("categories/category")],
@@ -110,6 +153,32 @@ def parse_desktop(data):
         return dict(cp["Desktop Entry"])
     except (configparser.Error, KeyError):
         return {}
+
+
+def desktop_i18n(d, key):
+    out = {}
+    for k, v in d.items():
+        m = re.fullmatch(re.escape(key) + r"\[(.+)\]", k)
+        if m and v:
+            out[normlang(m.group(1))] = v
+    return out
+
+
+def build_i18n(d, comp, default):
+    """{lang: {name, summary, description}} μόνο με ό,τι διαφέρει από την προεπιλογή."""
+    ci = comp.get("i18n", {})
+    fields = {
+        "name": {**desktop_i18n(d, "Name"), **ci.get("name", {})},          # AppStream υπερισχύει
+        "summary": {**desktop_i18n(d, "Comment"), **ci.get("summary", {})},
+        "description": ci.get("description", {}),
+    }
+    rows = {}
+    for f, per in fields.items():
+        for lang, text in per.items():
+            if skip_lang(lang) or text == default[f]:
+                continue
+            rows.setdefault(lang, {"name": "", "summary": "", "description": ""})[f] = text
+    return rows
 
 
 def override_shots(app_id, pkg):
@@ -163,11 +232,15 @@ def process(repo, pkg, arch):
         app_id = re.sub(r"\.desktop$", "", dname)
         comp = comps.get(app_id, {})
         shots = override_shots(app_id, pkg) or comp.get("screenshots", [])
-        apps.append({
-            "app_id": app_id, "pkg": pkg, "arch": arch,
+        default = {
             "name": comp.get("name") or d.get("Name", app_id),
             "summary": comp.get("summary") or d.get("Comment", "") or pkgrow["description"],
             "description": comp.get("description", ""),
+        }
+        apps.append({
+            "app_id": app_id, "pkg": pkg, "arch": arch,
+            **default,
+            "_i18n": build_i18n(d, comp, default),
             "categories": d.get("Categories", ";".join(comp.get("categories", []))).strip(),
             "homepage": comp.get("homepage") or pkgrow["upstream_url"],
             "license": comp.get("license") or pkgrow["licenses"],
@@ -210,9 +283,43 @@ def main():
     for a in apps:
         a["screenshot_count"] = len(a["screenshots"])
 
+    # --- μεταφράσεις: ένα αρχείο ανά γλώσσα ---
+    for old in OUT.glob("i18n-*"):
+        old.unlink()
+    per_lang = {}
+    for a in apps:
+        for lang, row in a.pop("_i18n").items():
+            per_lang.setdefault(lang, []).append((a["app_id"], a["arch"], row))
+    languages = []
+    for lang in sorted(per_lang):
+        safe = re.sub(r"[^A-Za-z0-9_-]", "-", lang)
+        dbp = OUT / f"i18n-{safe}.db"
+        con = sqlite3.connect(dbp)
+        con.executescript("""
+        PRAGMA journal_mode=OFF;
+        CREATE TABLE meta(key TEXT PRIMARY KEY, value TEXT);
+        CREATE TABLE i18n(app_id TEXT, arch TEXT, name TEXT, summary TEXT, description TEXT,
+            PRIMARY KEY(app_id, arch));
+        """)
+        con.execute("INSERT INTO meta VALUES('lang', ?)", (lang,))
+        for app_id, arch, row in sorted(per_lang[lang], key=lambda r: (r[0], r[1])):
+            con.execute("INSERT INTO i18n VALUES(?,?,?,?,?)",
+                        (app_id, arch, row["name"], row["summary"], row["description"]))
+        con.commit()
+        con.execute("VACUUM")
+        con.close()
+        gzp = OUT / f"i18n-{safe}.db.gz"
+        with open(dbp, "rb") as f, open(gzp, "wb") as raw, \
+                gzip.GzipFile(dbp.name, "wb", 9, raw, mtime=0) as gz:
+            gz.write(f.read())
+        dbp.unlink()
+        languages.append({"lang": lang, "file": gzp.name, "size": gzp.stat().st_size,
+                          "sha256": hashlib.sha256(gzp.read_bytes()).hexdigest(),
+                          "apps": len(per_lang[lang])})
+
     # --- index.json (χωρίς timestamp, ώστε ίδιο περιεχόμενο = ίδιο sha) ---
     idx = OUT / "index.json"
-    idx.write_text(json.dumps({"schema": SCHEMA, "packages": pkgs, "apps": apps},
+    idx.write_text(json.dumps({"schema": SCHEMA, "packages": pkgs, "apps": apps, "languages": languages},
                               ensure_ascii=False, indent=1, sort_keys=True) + "\n")
 
     # --- apps.db ---
@@ -231,6 +338,7 @@ def main():
         FOREIGN KEY(pkg, arch) REFERENCES packages(pkg, arch));
     CREATE TABLE screenshots(app_id TEXT, arch TEXT, idx INTEGER, url TEXT, caption TEXT,
         PRIMARY KEY(app_id, arch, idx));
+    CREATE TABLE languages(lang TEXT PRIMARY KEY, file TEXT, size INTEGER, sha256 TEXT, apps INTEGER);
     CREATE INDEX apps_pkg ON apps(pkg, arch);
     """)
     con.execute("INSERT INTO meta VALUES('schema', ?)", (str(SCHEMA),))
@@ -248,6 +356,9 @@ def main():
         for i, s in enumerate(a["screenshots"]):
             con.execute("INSERT INTO screenshots VALUES(?,?,?,?,?)",
                         (a["app_id"], a["arch"], i, s["url"], s["caption"]))
+    for l in languages:
+        con.execute("INSERT INTO languages VALUES(?,?,?,?,?)",
+                    (l["lang"], l["file"], l["size"], l["sha256"], l["apps"]))
     con.commit()
     con.execute("VACUUM")
     con.close()
@@ -261,9 +372,11 @@ def main():
 
     # --- αναφορά ---
     missing = sorted(f"{a['app_id']} ({a['pkg']})" for a in apps if not a["screenshots"])
-    (OUT / "missing-screenshots.txt").write_text("\n".join(missing) + ("\n" if missing else ""))
-    print(f"OK: {len(pkgs)} πακέτα, {len(apps)} εφαρμογές, {len(missing)} χωρίς screenshot, "
-          f"{len(warns)} παραλείφθηκαν")
+    # Το GitHub δεν δέχεται άδεια αρχεία (size >= 1), γι' αυτό υπάρχει πάντα τουλάχιστον μία γραμμή.
+    (OUT / "missing-screenshots.txt").write_text(
+        "\n".join(missing) + "\n" if missing else "# none: all apps have at least one screenshot\n")
+    print(f"OK: {len(pkgs)} πακέτα, {len(apps)} εφαρμογές, {len(languages)} γλώσσες, "
+          f"{len(missing)} χωρίς screenshot, {len(warns)} παραλείφθηκαν")
     if missing:
         print("Χωρίς screenshot: " + ", ".join(missing))
 
