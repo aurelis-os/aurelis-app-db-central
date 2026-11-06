@@ -1,3 +1,32 @@
 # owner/repo                        arch-package
 aurelis-os/aurelis-app-Kate         kate
 aurelis-os/aurelis-app-Krita        krita
+aurelis-app-KTouch                  KTouch
+aurelis-app-KTorrent                KTorrent
+aurelis-app-kdenlive                kdenlive
+aurelis-app-KBlocks                 KBlocks
+aurelis-app-KiCad                   KiCad
+aurelis-app-kdeconnect              kdeconnect
+aurelis-app-KCalc                   KCalc
+aurelis-app-KeePassXC               KeePassXC
+aurelis-app-Kid3                    Kid3
+aurelis-app-KMahjongg               KMahjongg
+aurelis-app-Knights                 Knights
+aurelis-app-KMines                  KMines
+aurelis-app-KolourPaint             KolourPaint
+aurelis-app-KPatience               KPatience
+aurelis-app-Kronos                  Kronos
+aurelis-app-KStars                  KStars
+aurelis-app-Krita                   Krita
+aurelis-app-Kate                    Kate
+
+
+
+
+
+
+
+
+
+
+
