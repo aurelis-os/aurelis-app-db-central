@@ -1,24 +1,25 @@
-# owner/repo                        arch-package
-aurelis-os/aurelis-app-Kate         kate
-aurelis-os/aurelis-app-Krita        krita
-aurelis-app-KTouch                  ktouch
-aurelis-app-KTorrent                ktorrent
-aurelis-app-kdenlive                kdenlive
-aurelis-app-KBlocks                 KBlocks
-aurelis-app-KiCad                   KiCad
-aurelis-app-kdeconnect              kdeconnect
-aurelis-app-KCalc                   KCalc
-aurelis-app-KeePassXC               KeePassXC
-aurelis-app-Kid3                    Kid3
-aurelis-app-KMahjongg               KMahjongg
-aurelis-app-Knights                 Knights
-aurelis-app-KMines                  KMines
-aurelis-app-KolourPaint             KolourPaint
-aurelis-app-KPatience               KPatience
-aurelis-app-Kronos                  Kronos
-aurelis-app-KStars                  KStars
-aurelis-app-Krita                   Krita
-aurelis-app-Kate                    Kate
+# owner/repo                                   arch-package
+# -----------------------------------------------------------------
+aurelis-os/aurelis-app-Kate                    kate
+aurelis-os/aurelis-app-Krita                   krita
+aurelis-os/aurelis-app-KTouch                  ktouch
+aurelis-os/aurelis-app-KTorrent                ktorrent
+aurelis-os/aurelis-app-kdenlive                kdenlive
+aurelis-os/aurelis-app-KBlocks                 KBlocks
+aurelis-os/aurelis-app-KiCad                   KiCad
+aurelis-os/aurelis-app-kdeconnect              kdeconnect
+aurelis-os/aurelis-app-KCalc                   KCalc
+aurelis-os/aurelis-app-KeePassXC               KeePassXC
+aurelis-os/aurelis-app-Kid3                    Kid3
+aurelis-os/aurelis-app-KMahjongg               KMahjongg
+aurelis-os/aurelis-app-Knights                 Knights
+aurelis-os/aurelis-app-KMines                  KMines
+aurelis-os/aurelis-app-KolourPaint             KolourPaint
+aurelis-os/aurelis-app-KPatience               KPatience
+aurelis-os/aurelis-app-Kronos                  Kronos
+aurelis-os/aurelis-app-KStars                  KStars
+aurelis-os/aurelis-app-Krita                   Krita
+aurelis-os/aurelis-app-Kate                    Kate
 
 
 
