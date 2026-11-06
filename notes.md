@@ -6,7 +6,6 @@ git lfs install
 git lfs track "screenshots/**"
 git lfs track "*.png" "*.jpg" "*.gif"
 
-
 # 3. Commit the .gitattributes file
 git add .gitattributes
 git commit -m "Track screenshots/ with LFS"
