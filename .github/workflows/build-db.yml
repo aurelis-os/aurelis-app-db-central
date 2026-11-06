@@ -1,0 +1,37 @@
+name: Build Software DB
+on:
+  schedule:
+    - cron: "17 */10 * * *"   # κάθε 10 ώρες
+  push:
+    branches: [main]
+    paths: [apps.txt, build_db.py, "screenshots/**"]
+  workflow_dispatch: {}
+
+concurrency:
+  group: build-db
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Build database
+        run: python3 build_db.py apps.txt
+        env:
+          ARCHS: "x86_64"          # π.χ. "x86_64 aarch64"
+      - name: Publish (release με σταθερό tag "db")
+        uses: softprops/action-gh-release@5be0e66d93ac7ed76da52eca8bb058f665c3a5fe # v2.4.2
+        with:
+          tag_name: db
+          name: Software database
+          make_latest: false
+          files: |
+            out/apps.db
+            out/apps.db.gz
+            out/index.json
+            out/*.sha256
+            out/missing-screenshots.txt

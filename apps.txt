@@ -1,0 +1,3 @@
+# owner/repo                        arch-package
+aurelis-os/aurelis-app-Kate         kate
+aurelis-os/aurelis-app-Krita        krita
