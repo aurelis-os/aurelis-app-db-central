@@ -1,10 +1,10 @@
 name: Build Software DB
 on:
   schedule:
-    - cron: "17 */10 * * *"   # κάθε 10 ώρες
+    - cron: "17 */6 * * *"   # κάθε 6 ώρες
   push:
     branches: [main]
-    paths: [apps.txt, build_db.py, "screenshots/**"]
+    paths: [apps.txt, build_db.py]
   workflow_dispatch: {}
 
 concurrency:
@@ -23,6 +23,7 @@ jobs:
         run: python3 build_db.py apps.txt
         env:
           ARCHS: "x86_64"          # π.χ. "x86_64 aarch64"
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}   # για να σκανάρει τα releases *-screenshots
       - name: Publish (release με σταθερό tag "db")
         uses: softprops/action-gh-release@5be0e66d93ac7ed76da52eca8bb058f665c3a5fe # v2.4.2
         with:

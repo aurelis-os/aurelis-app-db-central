@@ -14,7 +14,7 @@
    Μόνο απλά links `github.com/.../releases/latest/download/...`, **όχι GitHub API**.
 2. Φτιάχνει **μία εγγραφή ανά εφαρμογή** (ένα `.desktop`), όχι ανά πακέτο:
    το πακέτο `kate` δίνει δύο εφαρμογές, Kate και KWrite.
-3. Βάζει screenshots από το AppStream, ή από τον φάκελο `screenshots/` αν υπάρχει εκεί.
+3. Βάζει screenshots από το AppStream, ή τα δικά σου από τα releases `<πακέτο>-screenshots` (βλ. παρακάτω).
 4. Το workflow (κάθε 6 ώρες + σε αλλαγή του `apps.txt`) ανεβάζει τα αρχεία στο release με tag `db`.
 
 ## Πού τα κατεβάζει το Software app
@@ -49,3 +49,27 @@
 ## Τοπική δοκιμή
     python3 build_db.py apps.txt
     sqlite3 out/apps.db "select app_id, name from apps"
+
+## Screenshots
+Προτεραιότητα: **δικά σου** (releases `*-screenshots`) → αλλιώς του AppStream → αλλιώς λείπουν (λίστα στο `missing-screenshots.txt`).
+
+Τα δικά σου **δεν μπαίνουν στο repo** (ούτε LFS). Ανεβαίνουν ως assets σε releases του repo,
+ένα release ανά πακέτο, με tag `<πακέτο>-screenshots` (π.χ. `krita-screenshots`).
+
+1. Φτιάξε τοπικά (το `screenshots-src/` είναι στο `.gitignore`):
+
+       screenshots-src/krita/org.kde.krita/01.webp
+       screenshots-src/krita/org.kde.krita/02.webp
+       screenshots-src/kate/org.kde.kate/01.webp
+       screenshots-src/kate/org.kde.kwrite/01.webp
+
+   `<πακέτο>/<app_id>/` όπου `app_id` = όνομα του `.desktop` χωρίς `.desktop`. Ονόμασέ τα 01, 02, ...
+   (η σειρά είναι αλφαβητική). Μορφές webp/png/jpg. Προτείνεται πλάτος ~1280px και < 300 KB.
+2. `./upload-screenshots.sh` (χρειάζεται `gh auth login`).
+3. Τρέξε το workflow **Build Software DB** (ή περίμενε το cron). Δεν χρειάζεται commit.
+
+Το build διαβάζει μόνο του τα releases του repo (με το `GITHUB_TOKEN` του workflow, 1 αίτημα ανά 100 releases),
+κρατά assets με όνομα `<app_id>-<n>.<webp|png|jpg>` και τα ταξινομεί αριθμητικά. Αγνοεί drafts και άδεια αρχεία.
+Αν δεν υπάρχει token (π.χ. τοπικό τρέξιμο χωρίς `GITHUB_TOKEN`) παραλείπει τα δικά σου και κρατά του AppStream.
+
+Αν υπάρχουν δικά σου screenshots για μια εφαρμογή, **αντικαθιστούν** αυτά του AppStream.

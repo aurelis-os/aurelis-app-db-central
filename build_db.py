@@ -38,17 +38,19 @@ URL_TMPL = os.environ.get("RELEASE_URL", "https://github.com/{repo}/releases/lat
 CENTRAL = os.environ.get("CENTRAL_REPO") or os.environ.get("GITHUB_REPOSITORY", "")
 BRANCH = os.environ.get("CENTRAL_BRANCH", "main")
 OUT = Path(os.environ.get("OUT", "out"))
-SHOTS = Path(__file__).resolve().parent / "screenshots"
+TOKEN = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN", "")
+API_URL = os.environ.get("RELEASES_API", "https://api.github.com/repos/{repo}/releases?per_page=100&page={page}")
+SHOT_RE = re.compile(r"^(.+)-(\d+)\.(webp|png|jpe?g)$", re.I)
+SHOTS = {}   # app_id -> [url, ...]  (γεμίζει από scan_screenshots)
 XML_LANG = "{http://www.w3.org/XML/1998/namespace}lang"
-IMG_EXT = {".png", ".jpg", ".jpeg", ".webp"}
 SCHEMA = 1
 
 
-def fetch(url, tries=3):
+def fetch(url, tries=3, headers=None):
     """bytes, ή None αν δεν υπάρχει (404)."""
     for i in range(tries):
         try:
-            req = urllib.request.Request(url, headers={"User-Agent": "software-db-builder"})
+            req = urllib.request.Request(url, headers={"User-Agent": "software-db-builder", **(headers or {})})
             with urllib.request.urlopen(req, timeout=30) as r:
                 return r.read()
         except urllib.error.HTTPError as e:
@@ -181,15 +183,37 @@ def build_i18n(d, comp, default):
     return rows
 
 
+def scan_screenshots():
+    """Σκανάρει τα releases του κεντρικού repo με tag  <πακέτο>-screenshots  και παίρνει τα assets
+    με όνομα  <app_id>-<n>.<webp|png|jpg>.  Χρησιμοποιεί το GITHUB_TOKEN του workflow (1 αίτημα ανά 100 releases)."""
+    if not (CENTRAL and TOKEN):
+        print("INFO: χωρίς GITHUB_TOKEN/CENTRAL_REPO — δεν σκανάρονται τα screenshots releases", file=sys.stderr)
+        return
+    hdr = {"Authorization": f"Bearer {TOKEN}", "Accept": "application/vnd.github+json"}
+    found, page = {}, 1
+    while True:
+        raw = fetch(API_URL.format(repo=CENTRAL, page=page), headers=hdr)
+        if raw is None:
+            print("WARN: δεν διαβάστηκαν τα releases (token/δικαιώματα;) — χωρίς δικά σου screenshots", file=sys.stderr)
+            return
+        rels = json.loads(raw)
+        for r in rels:
+            if r.get("draft") or not str(r.get("tag_name", "")).endswith("-screenshots"):
+                continue
+            for a in r.get("assets", []):
+                m = SHOT_RE.match(a.get("name", ""))
+                if m and a.get("size", 1) > 0:
+                    found.setdefault(m.group(1), []).append((int(m.group(2)), a["browser_download_url"]))
+        if len(rels) < 100:
+            break
+        page += 1
+    for app_id, items in found.items():
+        SHOTS[app_id] = [u for _, u in sorted(items)]   # αριθμητική σειρά: 1, 2, ..., 10
+    print(f"INFO: screenshots releases: {len(SHOTS)} εφαρμογές", file=sys.stderr)
+
+
 def override_shots(app_id, pkg):
-    for key in (app_id, pkg):
-        d = SHOTS / key
-        if d.is_dir():
-            files = sorted(f.name for f in d.iterdir() if f.suffix.lower() in IMG_EXT)
-            if files:
-                base = f"https://raw.githubusercontent.com/{CENTRAL}/{BRANCH}/screenshots" if CENTRAL else "screenshots"
-                return [{"url": f"{base}/{key}/{n}", "caption": ""} for n in files]
-    return []
+    return [{"url": u, "caption": ""} for u in SHOTS.get(app_id, [])]
 
 
 def process(repo, pkg, arch):
@@ -266,6 +290,7 @@ def main():
             repo, pkg = line.split()[:2]
             jobs += [(repo, pkg, a) for a in ARCHS]
 
+    scan_screenshots()
     results, warns = [], []
     with cf.ThreadPoolExecutor(16) as ex:
         for res, warn in ex.map(lambda a: process(*a), jobs):
