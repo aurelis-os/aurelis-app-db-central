@@ -33,5 +33,6 @@ jobs:
             out/apps.db
             out/apps.db.gz
             out/index.json
+            out/i18n-*.db.gz
             out/*.sha256
             out/missing-screenshots.txt
