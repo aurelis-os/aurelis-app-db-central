@@ -285,11 +285,11 @@ def main():
     listfile = sys.argv[1] if len(sys.argv) > 1 else "apps.txt"
     jobs = []
     for line in Path(listfile).read_text().splitlines():
-        print(f"DEBUG: line=%r", line)
+        print(f"DEBUG: line={line!r}")
         line = line.split("#", 1)[0].strip()
         if line:
-            print(f"DEBUG: repo=%r, pkg=%r", *line.split()[:2])
             repo, pkg = line.split()[:2]
+            print(f"DEBUG: repo={repo!r}, pkg={pkg!r}")
             jobs += [(repo, pkg, a) for a in ARCHS]
 
     scan_screenshots()
