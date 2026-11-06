@@ -284,13 +284,18 @@ def sha_file(path):
 def main():
     listfile = sys.argv[1] if len(sys.argv) > 1 else "apps.txt"
     jobs = []
+    seen = set()
     for line in Path(listfile).read_text().splitlines():
         print(f"DEBUG: line={line!r}")
         line = line.split("#", 1)[0].strip()
         if line:
             repo, pkg = line.split()[:2]
             print(f"DEBUG: repo={repo!r}, pkg={pkg!r}")
-            jobs += [(repo, pkg, a) for a in ARCHS]
+            for a in ARCHS:
+                key = (repo, a)
+                if key not in seen:
+                    seen.add(key)
+                    jobs.append((repo, pkg, a))
 
     scan_screenshots()
     results, warns = [], []
