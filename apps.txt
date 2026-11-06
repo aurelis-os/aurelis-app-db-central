@@ -1,8 +1,8 @@
 # owner/repo                        arch-package
 aurelis-os/aurelis-app-Kate         kate
 aurelis-os/aurelis-app-Krita        krita
-aurelis-app-KTouch                  KTouch
-aurelis-app-KTorrent                KTorrent
+aurelis-app-KTouch                  ktouch
+aurelis-app-KTorrent                ktorrent
 aurelis-app-kdenlive                kdenlive
 aurelis-app-KBlocks                 KBlocks
 aurelis-app-KiCad                   KiCad
